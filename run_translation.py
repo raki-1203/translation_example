@@ -366,7 +366,7 @@ def main():
     if model.config.decoder_start_token_id is None:
         raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
 
-    lang_dict = {'ko': 'Korean', 'en': 'English', 'ja': 'Japanese'}
+    lang_dict = {'ko': 'Korean', 'en': 'English', 'jp': 'Japanese'}
     prefix = data_args.source_prefix if data_args.source_prefix is not None else \
         f"translate {lang_dict[data_args.source_lang]} to {lang_dict[data_args.target_lang]}: "
 
