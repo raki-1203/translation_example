@@ -3,7 +3,7 @@ import torch
 from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
-from utils.custom_dataloader import get_dataloader
+from utils.custom_dataloader import get_vanila_transformer_dataloader
 
 
 class VanilaTransformerTrainer:
@@ -20,7 +20,7 @@ class VanilaTransformerTrainer:
         self.src_tokenizer = src_tokenizer
         self.tgt_tokenizer = tgt_tokenizer
 
-        dataloader = get_dataloader(args, dataset, src_tokenizer, tgt_tokenizer)
+        dataloader = get_vanila_transformer_dataloader(args, dataset, src_tokenizer, tgt_tokenizer)
 
         self.train_dataloader = dataloader['train']
         self.valid_dataloader = dataloader['valid']
@@ -39,15 +39,11 @@ class VanilaTransformerTrainer:
             tgt = batch['tgt'].to(self.device)
             labels = batch['labels'].to(self.device)
 
-            tgt_input = tgt[:, :-1]  # batch 에 있는 단어에서 마지막 [EOS] 토큰 제거
+            src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = self.create_mask(src, tgt)
 
-            src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = self.create_mask(src, tgt_input)
-
-            logits = self.model(src, tgt_input, src_mask, tgt_mask, src_padding_mask, tgt_padding_mask, src_padding_mask)
+            logits = self.model(src, tgt, src_mask, tgt_mask, src_padding_mask, tgt_padding_mask, src_padding_mask)
 
             self.optimizer.zero_grad()
-
-            tgt_out = labels[:, 1:]  # batch 안에 있는 단어에서 [SOS] 토큰을 제거한 정답 sequence
 
             # Transformer Network 의 teacher forcing 을 아래와 같이 구현함
             # 즉, 학습시 auto regressive 한 디코더의 특징을 활용하는 것이 아니라,
@@ -55,7 +51,7 @@ class VanilaTransformerTrainer:
 
             # tgt_input 은 [SOS] 토큰으로 '정답 sequence 인 tgt_out 의 첫 토큰'을 맞추려 함
             # tgt_input 의 마지막 토큰으로 '정답 sequence 인 tgt_out 의 마지막 토큰'인 [EOS] 를 맞추려 함
-            loss = self.loss_fn(logits.reshape(-1, logits.shape[-1]), tgt_out.reshape(-1))
+            loss = self.loss_fn(logits.reshape(-1, logits.shape[-1]), labels.reshape(-1))
             loss.backward()
 
             self.optimizer.step()
@@ -66,31 +62,27 @@ class VanilaTransformerTrainer:
 
         return losses / len(self.train_dataloader)
 
+    @torch.no_grad()
     def evaluate(self):
         self.model.eval()
         losses = 0
 
         pbar = tqdm(enumerate(self.valid_dataloader, start=1), total=len(self.valid_dataloader))
         for idx, batch in pbar:
-            with torch.no_grad():
-                src = batch['src'].to(self.device)
-                tgt = batch['tgt'].to(self.device)
-                labels = batch['labels'].to(self.device)
+            src = batch['src'].to(self.device)
+            tgt = batch['tgt'].to(self.device)
+            labels = batch['labels'].to(self.device)
 
-                tgt_input = tgt[:, :-1]  # batch 에 있는 단어에서 마지막 [EOS] 토큰 제거
+            src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = self.create_mask(src, tgt)
 
-                src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = self.create_mask(src, tgt_input)
+            logits = self.model(src, tgt, src_mask, tgt_mask, src_padding_mask, tgt_padding_mask, src_padding_mask)
 
-                logits = self.model(src, tgt_input, src_mask, tgt_mask, src_padding_mask, tgt_padding_mask, src_padding_mask)
+            # tgt_input 은 [SOS] 토큰으로 '정답 sequence 인 tgt_out 의 첫 토큰'을 맞추려 함
+            # tgt_input 의 마지막 토큰으로 '정답 sequence 인 tgt_out 의 마지막 토큰'인 [EOS] 를 맞추려 함
+            loss = self.loss_fn(logits.reshape(-1, logits.shape[-1]), labels.reshape(-1))
+            losses += loss.item()
 
-                tgt_out = labels[:, 1:]  # batch 안에 있는 단어에서 [SOS] 토큰을 제거한 정답 sequence
-
-                # tgt_input 은 [SOS] 토큰으로 '정답 sequence 인 tgt_out 의 첫 토큰'을 맞추려 함
-                # tgt_input 의 마지막 토큰으로 '정답 sequence 인 tgt_out 의 마지막 토큰'인 [EOS] 를 맞추려 함
-                loss = self.loss_fn(logits.reshape(-1, logits.shape[-1]), tgt_out.reshape(-1))
-                losses += loss.item()
-
-                pbar.set_description(f'Valid loss: {losses / idx}')
+            pbar.set_description(f'Valid loss: {losses / idx}')
 
         return losses / len(self.valid_dataloader)
 

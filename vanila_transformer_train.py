@@ -122,6 +122,7 @@ def parse_args():
     parser.add_argument('--save_dir', type=str, default='./saved_model/transformer', help='saved model directory')
     parser.add_argument('--tokenizer_dir', type=str, default='./tokenizer', help='saved tokenizer directory')
     parser.add_argument('--seed', type=int, default=42, help='A seed for reproducible training.')
+    parser.add_argument('--device', type=int, default=0, help='A seed for reproducible training.')
     parser.add_argument('--run_name', type=str, default='', help='wandb run name')
     parser.add_argument(
         '--report_to',
@@ -172,7 +173,7 @@ def main():
     src_vocab_size = src_tokenizer.vocab_size
     tgt_vocab_size = tgt_tokenizer.vocab_size
 
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    device = f'cuda:{args.device}' if torch.cuda.is_available() else 'cpu'
 
     # load model
     model = VanilaTransformer(num_encoder_layers=args.num_encoder_layers,
@@ -233,7 +234,8 @@ def main():
               f'Epoch time = {(end_time - start_time):.3f}s')
 
         # 에폭마다 loss 의 history 를 남김
-        np.savetxt(os.path.join(args.log_dir, 'loss_history.txt'), np.array([train_losses, valid_losses]), fmt='%.4e')
+        np.savetxt(os.path.join(args.log_dir, args.run_name, 'loss_history.txt'),
+                   np.array([train_losses, valid_losses]), fmt='%.4e')
 
         if not os.path.exists(os.path.join(args.save_dir, args.run_name)):
             os.makedirs(os.path.join(args.save_dir, args.run_name), exist_ok=True)

@@ -89,36 +89,3 @@ class VanilaTransformer(nn.Module):
                memory: Tensor,
                tgt_mask: Tensor):
         return self.transformer.decoder(self.positional_encoding(self.tgt_tok_emb(tgt)), memory, tgt_mask)
-
-    def greedy_decode(self, src, max_len):
-        # Set model to evaluation
-        self.model.eval()
-
-        # Run Encoder on complete input sequence
-        src_mask = torch.zeros((src.shape[-1], src.shape[-1]), device=self.device).to(torch.bool)
-        memory = self.encode(src, src_mask)
-
-        # Shape: (batch, sequence_length, hiden_dim
-        tgt = ['[SOS]'] * src.shape[0]
-        tgt = torch.tensor(self.tgt_tokenizer.batch_encode_plus(tgt, add_special_tokens=False)['input_ids']).to(self.device)
-        print('Initial tgt shape:', tgt.shape)
-
-        # Iterate max sequence length
-        for i in range(max_len - 1):
-            # Avoid the decoder self_attention to attend to future
-            tgt_mask = (torch.triu(torch.ones((tgt.shape[-1], tgt.shape[-1]), device=self.device)) == 1).transpose(0, 1)
-            tgt_mask = tgt_mask.float().masked_fill(tgt_mask == 0, float('-inf')).masked_fill(tgt_mask == 1, float(0.0))
-
-            decoder_output = self.model.decode(tgt, memory, tgt_mask)
-            output = self.model.linear(decoder_output[:, -1:, :])
-
-            _, next_token = torch.max(output, dim=-1)
-
-            # concat tgt, next_token
-            tgt = torch.cat([tgt, next_token], dim=1)
-
-            if next_token == 3:  # '[EOS]' 토큰 나온 경우 멈춤
-                break
-
-        return tgt
-
