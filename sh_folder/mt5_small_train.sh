@@ -20,11 +20,15 @@ python run_translation.py \
 --cache_dir /data/heerak/.cache \
 --source_lang en \
 --target_lang ko \
---dataset_name Heerak/en_ko_translation \
+--dataset_name Heerak/ko_en_parallel_dataset \
 --num_beams 5 \
 --report_to wandb \
 --run_name mt5_small_en_ko_all \
 --log_level warning \
+--eval_steps 10000 \
+--evaluation_strategy steps \
+--save_steps 10000 \
+--save_total_limit 2 \
 #--max_train_samples 10000 \
 #--max_eval_samples 1000 \
 
