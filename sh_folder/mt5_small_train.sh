@@ -5,12 +5,11 @@ python run_translation.py \
 --do_eval True \
 --do_predict True \
 --evaluation_strategy steps \
---gradient_accumulation_steps 2 \
 --num_train_epochs 5 \
---save_total_limit 1 \
 --seed 42 \
---per_device_train_batch_size 2 \
---per_device_eval_batch_size 2 \
+--per_device_train_batch_size 1 \
+--per_device_eval_batch_size 1 \
+--gradient_accumulation_steps 32 \
 --load_best_model_at_end True \
 --metric_for_best_model eval_bleu \
 --greater_is_better True \
@@ -29,6 +28,7 @@ python run_translation.py \
 --evaluation_strategy steps \
 --save_steps 10000 \
 --save_total_limit 2 \
+--preprocessing_num_workers 4 \
 #--max_train_samples 10000 \
 #--max_eval_samples 1000 \
 
